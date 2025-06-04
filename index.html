@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aplasta Cráneos 2000</title>
+  <link rel="stylesheet" href="css/pieces.css" />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="icon" href="assets/64.ico" type="image/x-icon" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700&display=swap" rel="stylesheet" />
+</head>
+
+<body>
+  <header class="hero">
+    <h1>
+      <a href="./" aria-label="Reiniciar juego y volver al inicio">Aplasta Cráneos 2000</a>
+      <a href="https://github.com/pedro-esparza/aplastacraneos2000" target="_blank" class="github-link float-right"
+        aria-label="Ver en GitHub">🌐 GitHub</a>
+    </h1>
+    <div class="container hero-layout">
+
+      <aside class="hero-board">
+        <div class="board-container">
+          <div id="rankLabels" class="rank-labels"></div>
+          <div class="board-wrapper">
+            <div id="chessboard" class="board"></div>
+          </div>
+          <div id="fileLabels" class="file-label"></div>
+        </div>
+        <p id="status" class="status-text">Posición inicial</p>
+      </aside>
+
+      <main class="hero-text">
+
+        <p class="project-description">Proyecto de código abierto, gratuito y para todos</p>
+
+        <div class="buttons">
+          <a href="#" id="jugarBlancas" class="color-link selected">¡Juega con Blancas!</a>
+          <a href="#" id="jugarNegras" class="color-link">¡Juega con Negras!</a>
+        </div>
+
+        <div id="imagenInicio" class="imagen-inicio">
+          <img src="assets/images/magician.png" alt="Esperando inicio de partida: mago listo para jugar ajedrez" />
+        </div>
+
+        <section id="movimientosContainer" class="analisis-container hidden">
+
+          <div class="export-buttons">
+            <span class="btn secondary">Análisis IA (master magician)</span>
+            <button id="btnExportCSV" class="btn btn-csv">CSV</button>
+            <button id="btnExportJSON" class="btn btn-json">JSON</button>
+          </div>
+
+          <div id="vistaMovimientos">
+            <p id="moveString" class="cadena-movimientos"></p>
+          </div>
+          <div id="vistaAnalisis">
+            <div id="analisisResumen"></div>
+            <div class="scroll-delgado tabla-contenedor">
+              <table id="tablaAnalisisIA" style="width: 100%;">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Jugada</th>
+                    <th>Eval Total</th>
+                    <th>Eval Mat</th>
+                    <th>Eval Pos</th>
+                    <th>Prof Rem.</th>
+                    <th>α</th>
+                    <th>β</th>
+                    <th>PV Parcial</th>
+                    <th>#Nodos</th>
+                    <th>¿Max?</th>
+                    <th>Poda?</th>
+                  </tr>
+                </thead>
+                <tbody>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      </main>
+
+    </div>
+  </header>
+
+  
+  <footer>
+    <p>© 2025
+      <a target="_blank" href="https://www.facebook.com/AcademiaAjedrez64"
+        style="color: inherit; text-decoration: none; font-weight: bold; cursor: pointer;">
+        A64 Developer Team
+      </a>
+    </p>
+  </footer>
+  <script type="module" src="/src/index.ts"></script>
+</body>
+
+</html>

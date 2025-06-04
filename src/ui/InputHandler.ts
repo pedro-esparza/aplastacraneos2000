@@ -1,0 +1,318 @@
+import { GameState } from '../core/model/GameState';
+import { Renderer } from './Renderer';
+import { Move } from '../core/model/Move';
+import { LogEntry } from '../core/ai/MoveResult';
+
+type WorkerRequest = {
+  type: 'CALCULAR_MEJOR_JUGADA';
+  payload: { fen: string; depth: number };
+};
+
+type WorkerResponse = {
+  type: 'RESULTADO_JUGADA';
+  payload: {
+    bestMove: Move;
+    positionsEvaluated: number;
+    timeMs: number;
+    logEntries: LogEntry[];
+  };
+};
+
+export class InputHandler {
+  private gameState: GameState;
+  private renderer: Renderer;
+  private worker: Worker;
+  public playerColor: 'w' | 'b';
+  private selectedSquare: string | null = null;
+
+  private ultimoLog: LogEntry[] = [];
+  private moveStringEl: HTMLElement;
+  private tablaAnalisisBody: HTMLElement;
+
+  constructor(
+    gameState: GameState,
+    renderer: Renderer,
+    worker: Worker,
+    playerColor: 'w' | 'b'
+  ) {
+    this.gameState = gameState;
+    this.renderer = renderer;
+    this.worker = worker;
+    this.playerColor = playerColor;
+
+    this.moveStringEl = document.getElementById('moveString')!;
+    this.tablaAnalisisBody = document.querySelector('#tablaAnalisisIA tbody')!;
+  }
+
+  public init(): void {
+    this.renderer.render(this.gameState);
+
+    const btnCSV = document.getElementById('btnExportCSV')!;
+    const btnJSON = document.getElementById('btnExportJSON')!;
+
+    btnCSV.addEventListener('click', () => {
+      if (this.ultimoLog.length === 0) return;
+      this.exportLogAsCSV(this.ultimoLog);
+    });
+
+    btnJSON.addEventListener('click', () => {
+      if (this.ultimoLog.length === 0) return;
+      this.exportLogAsJSON(this.ultimoLog);
+    });
+
+    this.worker.onmessage = (e: MessageEvent<WorkerResponse>) => {
+      const data = e.data;
+      if (data.type === 'RESULTADO_JUGADA') {
+        const { bestMove, logEntries } = data.payload;
+        this.gameState.applyMove(bestMove);
+        this.renderer.render(this.gameState);
+        this.updateMoveHistory();
+        this.ultimoLog = logEntries;
+        this.volcarLogEnTabla(logEntries);
+      }
+    };
+
+    this.setupClickListeners();
+
+    this.moveStringEl.innerHTML = '';
+    this.tablaAnalisisBody.innerHTML = '';
+  }
+
+  private setupClickListeners(): void {
+    const boardEl = this.renderer['boardContainer'] as HTMLElement;
+    boardEl.addEventListener('click', (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      let squareEl: HTMLElement | null = null;
+      if (target.classList.contains('square')) {
+        squareEl = target;
+      } else if (target.classList.contains('piece')) {
+        squareEl = target.parentElement;
+      }
+      if (!squareEl) return;
+      const squareId = squareEl.id;
+      this.onSquareClick(squareId);
+    });
+  }
+
+  private onSquareClick(squareId: string): void {
+    const imagenInicio = document.getElementById('imagenInicio')!;
+    const movimientosContainer = document.getElementById('movimientosContainer')!;
+
+    if (this.gameState.isGameOver()) return;
+    if (this.gameState.getTurn() !== this.playerColor) return;
+
+    if (!this.selectedSquare) {
+      const [row, col] = this.convertAlgebraicToCoords(squareId);
+      const matrix = this.gameState.getBoardArray();
+      const piece = matrix[row][col];
+      if (!piece || piece.color !== this.playerColor) {
+        return;
+      }
+      this.selectedSquare = squareId;
+      this.renderer.clearHighlights();
+      this.renderer.highlightSquare(squareId);
+      return;
+    }
+
+    const move: Move = { from: this.selectedSquare, to: squareId };
+    this.selectedSquare = null;
+    this.renderer.clearHighlights();
+
+    const success = this.gameState.applyMove(move);
+    if (!success) {
+      this.renderer.render(this.gameState);
+      return;
+    }
+
+    this.renderer.render(this.gameState);
+
+    if (
+      !imagenInicio.classList.contains('fade-out') &&
+      !imagenInicio.classList.contains('hidden')
+    ) {
+      imagenInicio.classList.add('fade-out');
+      movimientosContainer.classList.remove('hidden');
+      setTimeout(() => imagenInicio.classList.add('hidden'), 800);
+    }
+
+    this.updateMoveHistory();
+
+    if (!this.gameState.isGameOver()) {
+      const fen = this.gameState.getFEN();
+      const depth = 3;
+      const request: WorkerRequest = {
+        type: 'CALCULAR_MEJOR_JUGADA',
+        payload: { fen, depth },
+      };
+      try {
+        this.worker.postMessage(request);
+      } catch {
+      }
+    }
+  }
+
+  private updateMoveHistory(): void {
+    const history = this.gameState.getHistory();
+    let str = '';
+    for (let i = 0; i < history.length; i += 2) {
+      const numero = Math.floor(i / 2) + 1;
+      const sanBlanca = history[i] || '';
+      const sanNegra = history[i + 1] || '';
+      str += `<strong>${numero}.</strong> `;
+      if (sanBlanca) {
+        str += `<strong class="jugada-blancas">${sanBlanca}</strong> `;
+      }
+      if (sanNegra) {
+        str += `<strong class="jugada-negras">${sanNegra}</strong> `;
+      }
+    }
+    this.moveStringEl.style.display = 'block';
+    this.moveStringEl.innerHTML = str.trim();
+  }
+
+  private volcarLogEnTabla(log: LogEntry[]): void {
+    this.tablaAnalisisBody.innerHTML = '';
+    log.forEach((entry, idx) => {
+      const tr = document.createElement('tr');
+      if (entry.pruned) {
+        tr.classList.add('fila-podada');
+      }
+
+      const tdNum = document.createElement('td');
+      tdNum.textContent = (idx + 1).toString();
+      tr.appendChild(tdNum);
+
+      const tdMove = document.createElement('td');
+      tdMove.textContent = entry.moveStr;
+      tr.appendChild(tdMove);
+
+      const tdValue = document.createElement('td');
+      tdValue.textContent = entry.value.toString();
+      tr.appendChild(tdValue);
+
+      const tdMat = document.createElement('td');
+      tdMat.textContent = entry.valueMaterial.toString();
+      tr.appendChild(tdMat);
+
+      const tdPos = document.createElement('td');
+      tdPos.textContent = entry.valuePositional.toString();
+      tr.appendChild(tdPos);
+
+      const tdDepthRem = document.createElement('td');
+      tdDepthRem.textContent = entry.depthRem.toString();
+      tr.appendChild(tdDepthRem);
+
+      const tdAlpha = document.createElement('td');
+      tdAlpha.textContent = entry.alpha === -Infinity ? '-∞' : entry.alpha.toString();
+      tr.appendChild(tdAlpha);
+
+      const tdBeta = document.createElement('td');
+      tdBeta.textContent = entry.beta === +Infinity ? '+∞' : entry.beta.toString();
+      tr.appendChild(tdBeta);
+
+      const tdPV = document.createElement('td');
+      tdPV.textContent = entry.pvLine.join(' ');
+      tr.appendChild(tdPV);
+
+      const tdNode = document.createElement('td');
+      tdNode.textContent = entry.nodeCount.toString();
+      tr.appendChild(tdNode);
+
+      const tdMax = document.createElement('td');
+      tdMax.textContent = entry.isMaximizing ? 'MAX' : 'MIN';
+      tr.appendChild(tdMax);
+
+      const tdPrune = document.createElement('td');
+      tdPrune.textContent = entry.pruned ? 'Sí' : 'No';
+      tr.appendChild(tdPrune);
+
+      this.tablaAnalisisBody.appendChild(tr);
+    });
+  }
+
+  private convertAlgebraicToCoords(squareId: string): [number, number] {
+    const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+    const fileChar = squareId[0];
+    const rankNum = Number(squareId[1]);
+    const col = files.indexOf(fileChar);
+    const row = 8 - rankNum;
+    return [row, col];
+  }
+
+  private exportLogAsCSV(logEntries: LogEntry[]): void {
+    const headers = [
+      '#',
+      'Jugada',
+      'Eval Total',
+      'Eval Mat',
+      'Eval Pos',
+      'Prof Rem.',
+      'alpha',
+      'beta',
+      'PV Parcial',
+      '#Nodos',
+      'Max/Min',
+      'Poda'
+    ];
+    const rows = logEntries.map((entry, idx) => {
+      const moveStr = `"${entry.moveStr}"`;
+      const pvStr = `"${entry.pvLine.join(' ')}"`;
+      const isMaxMin = entry.isMaximizing ? 'MAX' : 'MIN';
+      const pruned = entry.pruned ? 'Sí' : 'No';
+      return [
+        (idx + 1).toString(),
+        moveStr,
+        entry.value.toString(),
+        entry.valueMaterial.toString(),
+        entry.valuePositional.toString(),
+        entry.depthRem.toString(),
+        entry.alpha === -Infinity ? '-∞' : entry.alpha.toString(),
+        entry.beta === +Infinity ? '+∞' : entry.beta.toString(),
+        pvStr,
+        entry.nodeCount.toString(),
+        isMaxMin,
+        pruned
+      ].join(',');
+    });
+
+    const csvContent = [headers.join(','), ...rows].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'analisis.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  private exportLogAsJSON(logEntries: LogEntry[]): void {
+    const data = {
+      logEntries: logEntries.map((entry, idx) => ({
+        index: idx + 1,
+        moveStr: entry.moveStr,
+        value: entry.value,
+        valueMaterial: entry.valueMaterial,
+        valuePositional: entry.valuePositional,
+        depthRem: entry.depthRem,
+        alpha: entry.alpha,
+        beta: entry.beta,
+        pvLine: entry.pvLine,
+        nodeCount: entry.nodeCount,
+        isMaximizing: entry.isMaximizing,
+        pruned: entry.pruned
+      }))
+    };
+    const jsonString = JSON.stringify(data, null, 2);
+    const blob = new Blob([jsonString], { type: 'application/json;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'analisis.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+}

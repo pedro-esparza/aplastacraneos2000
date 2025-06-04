@@ -1,0 +1,91 @@
+.piece {
+    width: 100%;
+    height: 100%;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
+.wP {
+    background-image: url('/assets/pieces/wpawn.svg');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
+.wR {
+    background-image: url('/assets/pieces/wrook.svg');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
+.wN {
+    background-image: url('/assets/pieces/wknight.svg');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
+.wB {
+    background-image: url('/assets/pieces/wbishop.svg');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
+.wQ {
+    background-image: url('/assets/pieces/wqueen.svg');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
+.wK {
+    background-image: url('/assets/pieces/wking.svg');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
+.bP {
+    background-image: url('/assets/pieces/bpawn.svg');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
+.bR {
+    background-image: url('/assets/pieces/brook.svg');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
+.bN {
+    background-image: url('/assets/pieces/bknight.svg');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
+.bB {
+    background-image: url('/assets/pieces/bbishop.svg');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
+.bQ {
+    background-image: url('/assets/pieces/bqueen.svg');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
+.bK {
+    background-image: url('/assets/pieces/bking.svg');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+}
