@@ -148,6 +148,7 @@ body {
     align-items: flex-start;
     position: relative;
     margin-left: 32px;
+    margin-bottom: 2em;
 }
 
 .board-wrapper {
@@ -451,4 +452,50 @@ footer {
 
 .fila-podada {
     background-color: #198754;
+}
+
+#promotion-modal.hidden {
+    display: none;
+}
+
+#promotion-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+#promotion-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+}
+
+#promotion-dialog {
+    position: relative;
+    z-index: 1001;
+    background: #fff;
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+}
+
+#promotion-options button {
+    margin: 5px;
+    padding: 8px 12px;
+    font-size: 18px;
+    cursor: pointer;
+}
+
+.status-text {
+    margin-top: 1rem !important;
 }

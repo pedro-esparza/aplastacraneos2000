@@ -2,6 +2,7 @@ import { GameState } from '../core/model/GameState';
 import { Renderer } from './Renderer';
 import { Move } from '../core/model/Move';
 import { LogEntry } from '../core/ai/MoveResult';
+import { PromotionSelector, PromotionChoice } from './PromotionSelector';
 
 type WorkerRequest = {
   type: 'CALCULAR_MEJOR_JUGADA';
@@ -28,6 +29,10 @@ export class InputHandler {
   private ultimoLog: LogEntry[] = [];
   private moveStringEl: HTMLElement;
   private tablaAnalisisBody: HTMLElement;
+  private statusEl: HTMLElement;
+
+  private promotionSelector: PromotionSelector;
+  private isAwaitingPromotion: boolean = false;
 
   constructor(
     gameState: GameState,
@@ -42,10 +47,14 @@ export class InputHandler {
 
     this.moveStringEl = document.getElementById('moveString')!;
     this.tablaAnalisisBody = document.querySelector('#tablaAnalisisIA tbody')!;
+    this.statusEl = document.getElementById('status')!;
+
+    this.promotionSelector = new PromotionSelector();
   }
 
   public init(): void {
     this.renderer.render(this.gameState);
+    this.updateStatus();
 
     const btnCSV = document.getElementById('btnExportCSV')!;
     const btnJSON = document.getElementById('btnExportJSON')!;
@@ -69,11 +78,11 @@ export class InputHandler {
         this.updateMoveHistory();
         this.ultimoLog = logEntries;
         this.volcarLogEnTabla(logEntries);
+        this.updateStatus();
       }
     };
 
     this.setupClickListeners();
-
     this.moveStringEl.innerHTML = '';
     this.tablaAnalisisBody.innerHTML = '';
   }
@@ -94,20 +103,19 @@ export class InputHandler {
     });
   }
 
-  private onSquareClick(squareId: string): void {
+  private async onSquareClick(squareId: string): Promise<void> {
     const imagenInicio = document.getElementById('imagenInicio')!;
     const movimientosContainer = document.getElementById('movimientosContainer')!;
 
     if (this.gameState.isGameOver()) return;
     if (this.gameState.getTurn() !== this.playerColor) return;
+    if (this.isAwaitingPromotion) return;
 
     if (!this.selectedSquare) {
       const [row, col] = this.convertAlgebraicToCoords(squareId);
       const matrix = this.gameState.getBoardArray();
       const piece = matrix[row][col];
-      if (!piece || piece.color !== this.playerColor) {
-        return;
-      }
+      if (!piece || piece.color !== this.playerColor) return;
       this.selectedSquare = squareId;
       this.renderer.clearHighlights();
       this.renderer.highlightSquare(squareId);
@@ -118,6 +126,19 @@ export class InputHandler {
     this.selectedSquare = null;
     this.renderer.clearHighlights();
 
+    const isPromotion = this.isPawnPromotion(move.from, move.to);
+    if (isPromotion) {
+      this.isAwaitingPromotion = true;
+      try {
+        const choice: PromotionChoice = await this.promotionSelector.selectPromotion();
+        move.promotion = choice;
+        this.applyMoveYIA(move);
+      } finally {
+        this.isAwaitingPromotion = false;
+      }
+      return;
+    }
+
     const success = this.gameState.applyMove(move);
     if (!success) {
       this.renderer.render(this.gameState);
@@ -125,7 +146,6 @@ export class InputHandler {
     }
 
     this.renderer.render(this.gameState);
-
     if (
       !imagenInicio.classList.contains('fade-out') &&
       !imagenInicio.classList.contains('hidden')
@@ -136,19 +156,34 @@ export class InputHandler {
     }
 
     this.updateMoveHistory();
+    this.updateStatus();
 
     if (!this.gameState.isGameOver()) {
       const fen = this.gameState.getFEN();
-      const depth = 3;
-      const request: WorkerRequest = {
-        type: 'CALCULAR_MEJOR_JUGADA',
-        payload: { fen, depth },
-      };
+      const request: WorkerRequest = { type: 'CALCULAR_MEJOR_JUGADA', payload: { fen, depth: 3 } };
       try {
         this.worker.postMessage(request);
-      } catch {
-      }
+      } catch { }
     }
+  }
+
+  private applyMoveYIA(move: Move): void {
+    try {
+      const wasApplied = this.gameState.applyMove(move);
+      if (!wasApplied) return;
+
+      this.renderer.render(this.gameState);
+      this.updateMoveHistory();
+      this.updateStatus();
+
+      if (!this.gameState.isGameOver()) {
+        const fen = this.gameState.getFEN();
+        const request: WorkerRequest = { type: 'CALCULAR_MEJOR_JUGADA', payload: { fen, depth: 3 } };
+        try {
+          this.worker.postMessage(request);
+        } catch { }
+      }
+    } catch { }
   }
 
   private updateMoveHistory(): void {
@@ -228,6 +263,11 @@ export class InputHandler {
 
       this.tablaAnalisisBody.appendChild(tr);
     });
+  }
+
+  private updateStatus(): void {
+    const turn = this.gameState.getTurn();
+    this.statusEl.textContent = turn === 'w' ? 'Turno: Blancas' : 'Turno: Negras';
   }
 
   private convertAlgebraicToCoords(squareId: string): [number, number] {
@@ -314,5 +354,17 @@ export class InputHandler {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+  }
+
+  private isPawnPromotion(from: string, to: string): boolean {
+    const [rowFrom, colFrom] = this.convertAlgebraicToCoords(from);
+    const matriz = this.gameState.getBoardArray();
+    const piece = matriz[rowFrom][colFrom];
+    if (!piece || piece.type !== 'p') return false;
+
+    const rankDest = parseInt(to[1], 10);
+    if (piece.color === 'w' && rankDest === 8) return true;
+    if (piece.color === 'b' && rankDest === 1) return true;
+    return false;
   }
 }
